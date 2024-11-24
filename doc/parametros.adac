@@ -1,0 +1,28 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+integer debajoDelArray; -- @16
+
+
+    function integer dame_un_1(val integer k_por_val; ref integer l_por_val[10]) is   
+    integer variable1;
+    character array1[3];    
+    begin
+        return 1;
+    end
+
+begin
+    -- Llamada con constantes y variables
+    a := dame_un_1(1, array);
+
+    -- Llamada con variables
+    a := dame_un_1(a2, array);
+
+    -- Llamada con componentes de array
+    a := dame_un_1(array[4], array);
+
+    -- Llamada con salida de una función
+    a := dame_un_1(dame_un_1(array[4], array), array);
+end 

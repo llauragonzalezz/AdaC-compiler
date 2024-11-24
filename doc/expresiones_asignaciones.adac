@@ -1,0 +1,83 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+integer debajoDelArray; -- @16
+
+
+    function integer funcion_que_devuelve_dos() is 
+    begin
+        return 2;
+    end
+
+    function integer expresiones_por_valor_y_de_nivel_anterior(val integer k_por_val; val integer l_por_val[10]) is   
+    integer int_propio;
+    integer array_propio[6];
+
+    begin
+        -- asignaciones de constantes a params
+        k_por_val := -8 + 6 - 7;                 
+        l_por_val[2] := 9 div 2 * 4;                
+
+        -- asignaciones a params de otros params
+        k_por_val := l_por_val[k_por_val] * 7; -- indexado por expresiones
+        k_por_val := l_por_val[funcion_que_devuelve_dos() - k_por_val] * 7; -- indexado por funciones
+
+        -- asignaciones a params de variables propias y viceversa
+        -- variables simples
+        int_propio := k_por_val;
+        k_por_val := int_propio;
+
+        -- variables array
+        array_propio[2] := k_por_val;
+        k_por_val := array_propio[5];
+
+        -- asignaciones a params de variables de niveles anteriores
+        k_por_val := a - 9;
+
+        -- asignaciones a params con resultados de funciones
+        k_por_val := funcion_que_devuelve_dos() * 5;
+
+        return 2;
+    end
+
+
+    function integer expresiones_por_ref_y_de_nivel_anterior(ref integer k_por_ref; ref integer l_por_ref[10]) is   
+    integer int_propio;
+    integer array_propio[6];
+
+    begin
+        -- asignaciones de constantes a params
+        k_por_ref := -8 + 6 - 7;                    -- ok
+        l_por_ref[2] := 9 div 2 * 4;                -- ok
+
+        -- asignaciones a params de otros params
+        k_por_ref := l_por_ref[k_por_ref] * 7;
+        k_por_ref := l_por_ref[funcion_que_devuelve_dos() - k_por_ref] * 7; -- indexado por funciones
+
+        -- asignaciones a params de variables propias y viceversa
+        -- variables simples
+        int_propio := k_por_ref;
+        k_por_ref := int_propio;
+        
+        -- ^ funcionan
+
+        -- variables array
+        array_propio[2] := k_por_ref;
+        k_por_ref := array_propio[5];
+
+        -- asignaciones a params de variables de niveles anteriores
+        k_por_ref := a - 9;
+
+        -- asignaciones a params con resultados de funciones
+        k_por_ref := funcion_que_devuelve_dos() * 5;
+
+        return 2;
+    end
+
+begin
+    a := expresiones_por_valor_y_de_nivel_anterior(10, array); -- Como la nota que queremos
+
+    a := expresiones_por_ref_y_de_nivel_anterior(a2, array);
+end 

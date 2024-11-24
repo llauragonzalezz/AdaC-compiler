@@ -1,0 +1,47 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+character arrayC[10]; -- @16 (16,17,18,19,20,21,22,23,24,25)
+integer debajoDelArray; -- @26
+character c; -- @27 ---> 28
+
+    function integer funcion_1(val integer k_por_val; val integer l_por_val[10]) is -- 19, (20,21,22,23,24,25,26,27,28,29)  
+    integer variable1;
+    character array1[3];
+    begin
+        return 42;
+    end
+
+
+begin
+    -- get
+    get(array[1],a,c);
+
+    -- put
+    put(array[1], a, c);
+    put(int2char(a));
+    put(char2int(c));
+    
+    -- put_line
+    put_line(int2char(a));
+    put_line(char2int(c));
+    put_line(array[1],a,c);
+    put_line();
+
+    -- skip_line
+    skip_line();
+
+
+    -- char2int, int2char
+    a2 := char2int(c);
+    a2 := char2int(arrayC[1]);
+    
+    c := int2char(a);
+    c := int2char(array[1]);
+
+    -- Mezclados
+    put(funcion_1(1, array));
+    put(int2char(funcion_1(char2int('c'), array)));
+end 

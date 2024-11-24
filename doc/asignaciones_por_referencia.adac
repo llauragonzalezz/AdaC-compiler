@@ -1,0 +1,27 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+integer debajoDelArray; -- @16
+
+    function integer dame_un_1(ref integer k_por_ref; ref integer l_por_ref[10]) is   
+    integer variable1;
+    character array1[3];    
+    begin
+        variable1 := k_por_ref;
+
+        variable1 := l_por_ref[2];
+
+        variable1 := l_por_ref[k_por_ref];
+
+        a := dame_un_1(k_por_ref, l_por_ref);
+
+        return dame_un_1(k_por_ref, l_por_ref);
+
+        return dame_un_1(l_por_ref[2], l_por_ref);
+    end
+
+begin
+    a := dame_un_1(a, array);
+end 

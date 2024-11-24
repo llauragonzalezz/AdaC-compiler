@@ -1,0 +1,420 @@
+--------------------------------------------------------------------------
+procedure logo is
+-- Lee por la entrada estándar un conjunto de instrucciones, con una en cada línea,
+-- y devuelve una representación del camino seguido por la tortuga escribiendo líneas
+-- en un fichero de SVG válido.
+
+-- Instrucciones válidas:
+--  pendown
+--      Pone el lápiz en el papel, escribiendo líneas del recorrido en cada instrucción forward o giro.
+
+--  penup
+--      Levanta el lápiz del papel. No escribirá líneas del recorrido, pero seguirá avanzando en forward o giro.
+
+--  forward distancia
+--      Avanza distancia píxeles, siendo distancia un número entero.
+
+--  left n
+--      Gira 90º a la izquierda n veces, siendo n un número entero.
+
+--  right n
+--      Gira 90º a la derecha n veces, siendo n un número entero.
+
+--  fin
+--      Termina el recorrido y cierra el archivo SVG.
+
+-- La tortuga empieza en (0,0), con dirección hacia la derecha y escribiendo.
+-- El área límite es 1600x1600
+-- Sobrepasar el área límite o introducir instrucciones incorrectas causará comportamiento indefinido.
+
+-- Ejemplo de entrada, para escribir un fichero .SVG con "HOLA":
+--	penup
+--	forward 200
+--	right 1
+--	forward 200
+--	pendown
+--	forward 400
+--	left 2
+--	forward 200
+--	right 1
+--	forward 200
+--	right 1
+--	forward 200
+--	left 2
+--	forward 400
+--	right 2
+--	forward 200
+--	left 1
+--	penup
+--	forward 50
+--	pendown
+--	left 1
+--	forward 200
+--	right 2
+--	forward 400
+--	left 1
+--	forward 200
+--	left 1
+--	forward 400
+--	left 1
+--	forward 200
+--	penup
+--	right 2
+--	forward 250
+--	pendown
+--	right 1
+--	forward 400
+--	left 1
+--	forward 200
+--	penup
+--	forward 50
+--	pendown
+--	left 1
+--	forward 400
+--	right 1
+--	forward 200
+--	right 1
+--	forward 200
+--	right 1
+--	forward 200
+--	left 2
+--	forward 200
+--	right 1
+--	forward 200
+--	fin
+--------------------------------------------------------------------------
+
+integer x, y, direccion, num_inst, avance;
+boolean escribir;
+
+--------------------------------------------------------------------------
+function integer strcompare (ref character str1[10]; ref character str2[10]) is
+-- Pre: Las dos cadenas terminan en '\0'
+-- Post: Devuelve 1 si las dos cadenas son iguales, o 0 en caso contrario
+--------------------------------------------------------------------------
+integer i;
+begin
+    i := 0;
+    while (str1[i] <> int2char(0)) and (str2[i] <> int2char(0)) do
+        if str1[i] <> str2[i] then
+            return 0;
+        end
+
+        i := i + 1;
+    end
+
+    return 1;
+end
+
+--------------------------------------------------------------------------
+function integer atoi (ref character str[10]) is
+-- Pre: La cadena termina en '\0'
+-- Post: Devuelve el array de caracteres representado como integer
+--------------------------------------------------------------------------
+integer resultado;
+integer i;
+
+begin
+    resultado := 0;
+    i := 0;
+    
+    while str[i] <> int2char(0) do -- Mientras no encuentre un '\0'
+        resultado := (resultado * 10) + (char2int(str[i]) - 48); -- -48 equivale a hacer -'0'
+
+        i := i + 1;
+    end
+
+
+    return resultado;    
+end
+
+--------------------------------------------------------------------------
+procedure print_integer(val integer num) is
+-- Pre: 
+-- Post: Muestra un integer de n cifras por pantalla
+--------------------------------------------------------------------------
+integer digito;
+integer temp;
+integer digitos[10];
+
+integer i;
+integer j;
+
+begin
+    temp := num;
+
+    i := 0;
+    j := 0;
+
+    -- Extrae cada cifra
+    while temp <> 0 do
+        digito := temp mod 10;
+        temp := temp div 10;
+
+        digitos[i] := digito;
+        i := i + 1;
+    end 
+
+    -- Hace prints de las cifras en sentido inverso
+    j := i - 1;
+    while j > (-1) do
+        put(int2char(digitos[j] + 48)); -- +48 equivale a hacer +'0'
+
+        j := j - 1;
+    end
+end
+
+
+--------------------------------------------------------------------------
+procedure leer_linea (ref integer instruccion, avance) is
+-- Pre: Las instrucciones y avances de la entrada son válidos. El comportamiento es indefinido en otro caso
+-- Post: Actualiza instruccion y avance según lo leído de la entrada
+--------------------------------------------------------------------------
+character c;
+character instruccionLeida[10];
+
+character instruccionFin[10];
+character instruccionPendown[10];
+character instruccionPenup[10];
+character instruccionForward[10];
+character instruccionLeft[10];
+character instruccionRight[10];
+
+character avanceLeido[10];
+integer i;
+
+boolean esperaAvance; -- Para indicar que la instrucción leída espera o no un avance
+
+begin
+
+    -------------------------------------------------------
+    -- Inicializaciones
+
+    esperaAvance := true;
+
+    i := 0;
+    while i < 10 do
+        instruccionLeida[i] := int2char(0);
+        avanceLeido[i] := int2char(0);
+        i := i + 1;
+    end
+
+    instruccionFin[0] := 'f';
+    instruccionFin[1] := 'i';
+    instruccionFin[2] := 'n';
+    instruccionFin[3] := int2char(10);
+
+    instruccionPendown[0] := 'p';
+    instruccionPendown[1] := 'e';
+    instruccionPendown[2] := 'n';
+    instruccionPendown[3] := 'd';
+    instruccionPendown[4] := 'o';
+    instruccionPendown[5] := 'w';
+    instruccionPendown[6] := 'n';
+    instruccionPendown[7] := int2char(0);
+
+
+    instruccionPenup[0] := 'p';
+    instruccionPenup[1] := 'e';
+    instruccionPenup[2] := 'n';
+    instruccionPenup[3] := 'u';
+    instruccionPenup[4] := 'p';
+    instruccionPenup[5] := int2char(0);
+
+
+    instruccionForward[0] := 'f';
+    instruccionForward[1] := 'o';
+    instruccionForward[2] := 'r';
+    instruccionForward[3] := 'w';
+    instruccionForward[4] := 'a';
+    instruccionForward[5] := 'r';
+    instruccionForward[6] := 'd';
+    instruccionForward[7] := int2char(0);
+
+    instruccionLeft[0] := 'l';
+    instruccionLeft[1] := 'e';
+    instruccionLeft[2] := 'f';
+    instruccionLeft[3] := 't';
+    instruccionLeft[4] := int2char(0);
+
+    instruccionRight[0] := 'r';
+    instruccionRight[1] := 'i';
+    instruccionRight[2] := 'g';
+    instruccionRight[3] := 'h';
+    instruccionRight[4] := 't';
+    instruccionRight[5] := int2char(0);
+
+    -------------------------------------------------------
+
+    -- Leer instrucción
+    i := 0;
+    get(c);
+    while (c <> int2char(10)) and (c <> ' ') do
+        instruccionLeida[i] := c;
+        i := i + 1;
+        get(c);
+    end
+
+    -- Parsear instrucción
+    if strcompare(instruccionLeida, instruccionFin) = 1 then
+        instruccion := 0;
+        avance := 0;
+        esperaAvance := false;
+        else if strcompare(instruccionLeida, instruccionPendown) = 1 then
+            instruccion := 1;
+            avance := 0;
+            esperaAvance := false;
+            else if strcompare(instruccionLeida, instruccionPenup) = 1 then
+                instruccion := 2;
+                avance := 0;
+                esperaAvance := false;
+                else if strcompare(instruccionLeida, instruccionForward) = 1 then
+                    instruccion := 3;
+                    else if strcompare(instruccionLeida, instruccionLeft) = 1 then
+                        instruccion := 4;
+                        else if strcompare(instruccionLeida, instruccionRight) = 1 then
+                            instruccion := 5;
+                        end
+                    end
+                end 
+            end
+        end
+    end
+
+    if esperaAvance then
+        -- Leer y parsear avance
+        i := 0;
+        get(c);
+        while (c <> int2char(10)) do
+            avanceLeido[i] := c;
+            i := i + 1;
+            get(c);
+        end
+
+        avance := atoi(avanceLeido);
+    end
+end
+
+
+--------------------------------------------------------------------------
+procedure escribir_linea (ref integer x, y; val integer direccion, avance) is
+-- Pre: --
+-- Post: Escribe una línea de SVG de (x,y) a (x',y'), dependiendo de direccion y avance,
+--       y actualiza x e y con dicho avance
+--------------------------------------------------------------------------
+begin
+    -- <line x1="x1" y1="y1" 
+    put("<line x1=""");
+    print_integer(x);
+    put(""" y1=""");
+    print_integer(y);
+    put(""" x2=""");
+
+
+    if direccion = 0 then   -- derecha
+        x := x + avance;
+        else if direccion = 1 then  -- abajo
+            y := y + avance;  -- En SVG la coordenada y es inversa
+            
+            else if direccion = 2 then -- izquierda
+                x := x - avance;
+                
+                else if direccion = 3 then -- arriba
+                    y := y - avance;         
+                end
+            end
+        end
+    end
+
+    -- x2="x2" y2="y2"
+    print_integer(x);
+    put(""" y2=""");
+    print_integer(y);
+    
+    -- style="stroke:rgb(255,0,0);stroke-width:1" />
+    put(""" style=""stroke:rgb(255,0,0);stroke-width:1""/>");
+    put_line();
+end
+
+
+--------------------------------------------------------------------------
+function integer wrap (val integer a, b) is
+-- Pre: --
+-- Post: Hace un mod con saturación, para dar la vuelta si a era negativo
+--------------------------------------------------------------------------
+integer r;
+begin
+    r := a mod b;
+
+    if r < 0 then
+        return (r + b);
+    else
+        return r;
+    end
+end
+
+
+--------------------------------------------------------------------------
+procedure ejecutar_comando (ref integer x, y, direccion; ref boolean escribir; val integer num_inst, avance) is
+-- Pre: --
+-- Post: Actualiza (x,y) y direccion según el código de instrucción y el avance leídos previamente con leer_linea,
+--       teniendo en cuenta si el lápiz está o no en el papel
+--------------------------------------------------------------------------
+begin
+    if num_inst = 1 then -- Pendown
+        escribir := true;
+    else if num_inst = 2 then -- Penup
+        escribir := false;
+    else if num_inst = 3 then -- forward
+        if escribir = true then
+            escribir_linea(x, y, direccion, avance);
+            
+        -- El lápiz no está abajo, simplemente se avanza en la dirección sin escribir una línea de SVG    
+        else if (direccion = 0) then -- derecha
+            x := x+avance;
+            else if (direccion = 1) then -- abajo
+                y := y+avance; -- En SVG la coordenada y es inversa
+                else if (direccion = 2) then -- izquierda
+                    x := x-avance;
+                    else if (direccion = 3) then -- arriba
+                        y := y-avance; -- En SVG la coordenada y es inversa
+                    end
+                end 
+            end
+        end
+        end
+    else if (num_inst = 4) then -- left
+        direccion := wrap((direccion - avance), 4);        
+    else if (num_inst = 5) then -- right
+        direccion := wrap((direccion + avance), 4);        
+    end
+    end
+    end 
+    end
+    end
+    
+end
+
+--------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+begin
+    -- Empieza en (0,0), a la derecha y escribiendo
+    x := 0;
+    y := 0;
+    direccion := 0;          -- {0: derecha, 1: abajo, 2: izquierda, 3: arriba}
+    escribir := true;
+    num_inst := 0;           -- {0: fin, 1: pendown, 2: penup, 3: forward, 4: left, 5: right}
+    avance := 0;             -- Si es respecto a una instrucción forward: pasos a avanzar
+                             -- Si es respecto a una instrucción left o right: veces que girar en esa dirección
+
+    put_line("<svg height=""1600"" width=""1600"">");
+    leer_linea(num_inst, avance);
+    while num_inst <> 0 do
+        ejecutar_comando(x, y, direccion, escribir, num_inst, avance);
+        leer_linea(num_inst, avance);
+        --avance := avance + 1;
+    end
+
+    put_line("</svg>");
+end

@@ -1,0 +1,26 @@
+procedure prueba is 
+integer a;
+integer b[10];
+
+    function integer funcion_1(ref integer k_por_ref; val integer l_por_val[10]) is  
+    integer variable1;
+    character array1[3];
+    begin
+        get(k_por_ref, l_por_val[2], variable1);
+
+        put(k_por_ref, l_por_val[2], variable1);
+
+        put(k_por_ref, l_por_val[2], variable1);
+
+
+        put(k_por_ref, "hola", k_por_ref);
+
+        put_line(k_por_ref, "hola", k_por_ref);
+
+        return 42;
+    end
+
+
+begin
+	a := funcion_1(a,b);
+end

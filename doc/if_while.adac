@@ -1,0 +1,43 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+character debajoDelArray; -- @16
+
+procedure prueba_guardas_proc_anidado(ref character c1) is
+begin
+    while (c1 <> 'a') do
+        c1 := 'a';
+    end
+    if (c1 = 'a') then
+        c1 := '1';
+    else
+        c1 := '0';
+    end
+end
+
+begin
+    -- while sin más
+    while (1 = 1) do
+        a := 1;
+    end
+
+    -- if con else
+    if (a <> array[2]) then
+        a2 := 1;
+    else
+        a2 := 2;
+    end
+
+    -- if anidado
+    if (a <> array[2]) then
+        a2 := 1;
+    else 
+        if (a = array[2]) then
+            a2 := 2;
+        end
+    end
+
+    prueba_guardas_proc_anidado(debajoDelArray);
+end 

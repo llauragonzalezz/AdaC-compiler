@@ -1,0 +1,27 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+integer debajoDelArray; -- @16
+
+
+    function integer dame_un_1(val integer arrayval[10]) is
+    begin
+        return 1;
+    end
+
+begin
+    -- constantes
+    array[0] := array[3];
+
+    -- variables
+    array[a2] := array[debajoDelArray];
+
+    -- funciones
+    array[dame_un_1(array)] := array[dame_un_1(array)];
+
+    -- combinaciones
+    array[2 + a2 - dame_un_1(array)] := array[- 42 - debajoDelArray];
+    
+end 

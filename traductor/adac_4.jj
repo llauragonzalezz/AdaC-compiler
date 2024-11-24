@@ -1,0 +1,1544 @@
+//*****************************************************************
+// File:   adac_4.jj
+// Authors: 
+//		García Vázquez, Samuel      720873
+//		González Pizarro, Laura     805467
+// Date:   Junio 2022
+// Coms:   Práctica 4: Generación de código intermedio para adac
+//*****************************************************************
+
+options {
+	DEBUG_PARSER = false;
+}
+
+PARSER_BEGIN(adac_4)
+package traductor;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.ArrayList;
+import java.util.Stack;
+import java.io.PrintWriter;
+
+import lib.symbolTable.*;
+import lib.symbolTable.exceptions.*;
+import lib.attributes.*;
+import lib.tools.*;
+import lib.tools.codeGeneration.*;
+
+public class adac_4 {
+	static SemanticFunctions sf;
+
+	static String rutaFicheroEntrada = "";
+
+	public static void main(String[] args) {
+    	adac_4 parser;
+		enable_tracing();
+
+		sf = new SemanticFunctions();
+
+    	try {
+	    	if(args.length == 0) { // Entrada desde stdin
+				parser = new adac_4(System.in);
+			}
+			else { // Entrada desde fichero en args[0]
+	            parser = new adac_4(new java.io.FileInputStream(args[0])); 
+				rutaFicheroEntrada = args[0];
+				rutaFicheroEntrada = rutaFicheroEntrada.replaceAll(".adac", "");
+			}
+
+			parser.programa(); // Invoca al símbolo inicial de la gramática
+		}
+		catch (java.io.FileNotFoundException e) {
+			System.err.println("Fichero " + args[0] + " no encontrado.");
+		}
+		catch (TokenMgrError e) {
+        	System.err.println("LEX_ERROR: " + e.getMessage());					
+        }
+        catch (ParseException e) {
+        	System.err.println("SINT_ERROR: " + e.getMessage());				
+        } 
+    }	
+}
+
+/*********************************************************************/
+/* 							Análisis léxico							 */
+/*********************************************************************/
+
+PARSER_END(adac_4)
+//------------ descripción del AL
+SKIP :
+{
+    " "
+|	"\n"
+|	"\t"
+|	"\r"
+}
+
+TOKEN_MGR_DECLS : 
+{
+	static void darInfo(Token t, String s) {
+		System.out.println("(" + t.beginLine + "," + t.beginColumn + ") " + s + ": " + t.image);
+	}
+}
+
+//------- Tokens propios
+TOKEN :
+{
+ 	< #LETTER: (["a"-"z","A"-"Z"]) >
+|	< #DIGIT: ["0"-"9"] >
+}
+
+//------- Tokens a reconocer
+TOKEN :
+{
+// Tipos de datos y constantes reservadas
+	< tBOOL: "boolean" > 		
+|	< tCHAR: "character" >  	
+|	< tINTEGER: "integer">  	
+| 	< tTRUE: "true" > 			
+|	< tFALSE: "false" > 		
+
+// Palabras reservadas del lenguaje
+| 	< tBEGIN: "begin" > 		
+|   < tIF: "if"> 				
+|	< tELSE: "else"> 			
+|	< tEND: "end"> 				
+|	< tTHEN: "then"> 			
+|	< tFUNCTION: "function"> 	
+|	< tPROCEDURE: "procedure"> 	
+|	< tIS: "is"> 				
+|	< tWHILE: "while"> 			
+|	< tDO: "do"> 				
+|	< tRETURN: "return"> 		
+|	< tSEMICOLON: ";"> 			
+|	< tPUT: "put">				
+|	< tPUTLINE: "put_line">		
+|	< tGET: "get">				
+|	< tINT2CHAR : "int2char">  	
+|	< tCHAR2INT : "char2int"> 
+|	< tSKIPLINE : "skip_line">  	
+| 	< tVAL: "val">				
+| 	< tREF: "ref">				
+
+// Operadores
+|	< tGE: ">=" > 				
+|	< tGT: ">" > 				
+|	< tLE: "<=" > 				
+|	< tLT: "<" > 				
+|	< tE: "="> 					
+|	< tNE: "<>"> 				
+|	< tASSIGN: ":="> 			
+|	< tADD: "+"> 				
+|	< tSUB: "-"> 				
+|	< tMUL: "*"> 				
+|	< tDIV: "div"> 				
+|	< tAND: "and">				
+|	< tOR: "or">				
+|	< tNOT: "not">				
+|	< tMOD: "mod">				
+
+// Símbolos
+|	< tCOMMA: ","> 				
+|	< tOPAR: "("> 				
+|	< tCPAR: ")"> 				
+
+|	< tOBRACKET: "[">			
+|	< tCBRACKET: "]">			
+
+// Valores constantes y variables no reservadas
+| 	< tSTRING: "\"" (~["\"", "\n"] | "\"\"")* "\"" >	/* 	Cualquier cadena encerrada entre comillas dobles, 
+															que no contenga comillas dobles individuales o newlines, 
+															pero si pares de comillas dobles (escapadas) */
+								
+								 
+| 	< tCHARLITERAL: "\'"  (~[])?  "\'" > // Asumimos que se puede poner un char literal nulo
+								
+									
+|	< tIDENT: ((((<LETTER> (<LETTER>|<DIGIT>)*) | ("_"(<LETTER>|<DIGIT>)+)) ("_")? ((<LETTER>|<DIGIT>)+ ("_")?)*) | "_") > 
+	/* Cualquier cadena formada por letras, dígitos y '_' (no contiguos a otros '_' los últimos) tal que:
+		Empieza por una letra o
+		Empieza por _ y obligatoriamente le siguen una letra o número
+		o es '_'
+	*/
+								
+								
+|	< tNUMCT: (<DIGIT>)+>		
+	
+}
+
+SPECIAL_TOKEN: {
+	< tERROR:  ~[]> // Cualquier cadena no reconocida por un token anterior
+	{
+		System.out.println("ERROR LÉXICO: (" + matchedToken.beginLine + "," + matchedToken.beginColumn + "): símbolo no reconocido " + matchedToken.image);
+	}
+	|
+	< tCOMMENT: "--"(~["\n"])* ("\n")?> /* 	Cualquier string que empieza por "--" y contenga cualquier
+											carácter excepto un newline, terminando opcionalmente en 
+											dicho newline (por si el comentario está en la última línea 
+											y el fichero no termina en newline) */
+}
+
+
+/*********************************************************************/
+/* 	     Análisis sintáctico, semántico y generación de código		 */
+/*********************************************************************/
+
+/*
+ * - Los errores del análisis sintáctico se tratan mediante el tratamiento de ParseException 
+ *   y la entrada en modo pánico
+ * 
+ * - Los tratamientos y errores del análisis semántico se encuentran en las funciones de SemanticFunctions. 
+ *   Hay una por cada producción que requiera tratamiento.
+ *   SemanticFunctions también trata algunos aspectos menores de la generación de código, como la introducción
+ *   de etiquetas de procedimientos y funciones en la tabla de símbolos, etc.
+ * 
+ * - La generación de código se trata después de la llamada y tratamiento de errores del análisis semántico 
+ *   en cada producción, directamente en este fichero.
+ * 
+ */
+
+void programa() :
+{
+	Token t;
+	String etiqueta = "";
+	CodeBlock b1 = new CodeBlock();
+	CodeBlock b2 = new CodeBlock();
+	CodeBlock bloqueCodigoFinal = new CodeBlock();
+}
+{
+	<tPROCEDURE>
+	t = <tIDENT> 
+	{
+		// Se guarda el nombre del procedimiento principal, para impedir que sea llamado más tarde
+		sf.nombre_proc_principal = t.image;
+
+		etiqueta = CGUtils.newLabel();
+		sf.tratar_cabecera_procedimiento(t, new ArrayList<Symbol>(), etiqueta);	
+		
+		// Se indica el punto de inicio del programa, con la label del procedimiento principal
+		bloqueCodigoFinal.addInst(PCodeInstruction.OpCode.ENP, etiqueta); 
+	}
+	<tIS>
+	declaracion_variables()				
+	b1 = declaracion_procs_funcs() 
+	{
+		bloqueCodigoFinal.addComment("Declaración de procedimientos y funciones de " + t.image);
+		bloqueCodigoFinal.addBlock(b1);
+	}	
+	
+	b2 = bloque_sentencias()
+	{
+		bloqueCodigoFinal.addComment("Bloque de sentencias de " + t.image);
+		bloqueCodigoFinal.addLabel(etiqueta); // Se añade la etiqueta del proc principal en este punto
+
+		bloqueCodigoFinal.addBlock(b2);
+		bloqueCodigoFinal.addComment("Fin de bloque de sentencias de " + t.image);
+		bloqueCodigoFinal.addInst(PCodeInstruction.OpCode.LVP);
+	}					
+	<EOF> {
+		// Imprime el código
+		if (sf.errSem.contadorErrores == 0) {
+			if (rutaFicheroEntrada.isEmpty()) {
+				System.out.println(bloqueCodigoFinal);
+				System.err.println(sf.errSem); // Imprime cuántos errores y warnings ha habido por stderr
+			}
+			else {
+				try {
+					PrintWriter salidaFich = new PrintWriter(rutaFicheroEntrada+".pcode");
+					salidaFich.println(bloqueCodigoFinal);
+					System.out.println(sf.errSem); // Imprime cuántos errores y warnings ha habido por stdout
+					salidaFich.close();
+				} catch (java.io.FileNotFoundException e) {
+					System.err.println("Error al crear el fichero de salida " + rutaFicheroEntrada + "+.pcode, imprimiendo por terminal...");
+					System.out.println(bloqueCodigoFinal);
+					System.err.println(sf.errSem); // Imprime cuántos errores y warnings ha habido por stderr
+				}
+			}
+		} else {
+			System.err.println(sf.errSem); // Imprime cuántos errores y warnings ha habido por stderr
+		}	
+	}						
+}
+
+// (tipo var1, var2, var3; tipo var4, var5, var6; ...)*
+void declaracion_variables() : 
+{}
+{
+	( declaracion() <tSEMICOLON> )*
+}
+
+// tipo var1, var2, ...
+void declaracion() : 
+{
+	Symbol.Types tipo;
+}
+{
+	tipo = tipo_variable() lista_variables(tipo)
+}
+
+// tipo
+Symbol.Types tipo_variable() : 
+{}
+{
+	<tINTEGER> 
+		{
+			return Symbol.Types.INT;
+		}
+	| 
+	<tCHAR> 
+		{
+			return Symbol.Types.CHAR;
+		}
+	| 
+	<tBOOL> 
+		{
+			return Symbol.Types.BOOL;
+		}
+}
+
+// var1 (,var_n)*
+void lista_variables(Symbol.Types tipo) : 
+{}
+{
+	declaracion_variable(tipo) ( <tCOMMA> declaracion_variable(tipo) )*
+}
+
+// var([numCT])?
+void declaracion_variable(Symbol.Types tipo) : 
+{
+	Token t1, t2;
+}
+{
+	// Se divide declaracion_variable() en dos producciones para evitar
+	// tener que usar un lookahead de 2 tokens (declaracion_variable_2 puede
+	// ser una indexación de vector o nada)
+	t1 = <tIDENT> t2 = declaracion_variable_2() 
+		{
+			sf.tratar_declaracion_variable(t1, t2, tipo);
+		}
+}
+
+// [numCT]
+Token declaracion_variable_2() : 
+{
+	Token t1;
+}
+{
+	// Se obliga a que se indexe por constante numérica al ser una declaración
+	<tOBRACKET> t1 = <tNUMCT> <tCBRACKET> 
+		{
+			return t1;
+		}
+	|									
+		{
+			// epsilon
+			return null;
+		}
+}
+
+
+CodeBlock declaracion_procs_funcs() :
+{
+	CodeBlock b = new CodeBlock();
+	CodeBlock temp = new CodeBlock();
+}
+{
+	( temp = declaracion_proc_func() 
+	{
+		b.addBlock(temp);
+	})*
+	{
+		return b;
+	}
+}
+  
+CodeBlock declaracion_proc_func() : 
+{
+	CodeBlock b = new CodeBlock();
+}
+{
+	b = declaracion_funcion() {return b;}
+	| b = declaracion_procedimiento() {return b;}
+}
+
+CodeBlock declaracion_funcion() :
+{
+	Token t = new Token();
+	Attributes attr = null;
+	CodeBlock codigoFuncion = new CodeBlock();
+	CodeBlock b = new CodeBlock();
+	String etiqueta1 = CGUtils.newLabel(); // Etiqueta de cabecera
+	String etiqueta2 = CGUtils.newLabel(); // Etiqueta del bloque de sentencias
+}
+{
+	attr = cabecera_funcion(etiqueta1) {
+		codigoFuncion.addComment("Recuperación de parámetros de " + attr.nombre);
+		codigoFuncion.addLabel(etiqueta1);
+		codigoFuncion.addBlock(attr.b);
+		codigoFuncion.addInst(PCodeInstruction.OpCode.JMP, etiqueta2); // Salto al cuerpo de código
+	}
+
+	declaracion_variables()
+	b = declaracion_procs_funcs() {
+		codigoFuncion.addBlock(b);
+	}
+    
+	b = bloque_sentencias() 
+	{
+		sf.tratar_declaracion_funcion(sf.st.haHabidoReturn, attr.token);
+
+		codigoFuncion.addComment("Bloque de sentencias de " + attr.nombre);
+		
+		codigoFuncion.addLabel(etiqueta2);
+		codigoFuncion.addBlock(b);	
+		
+		codigoFuncion.addInst(PCodeInstruction.OpCode.CSF); // Se cierra el bloque
+
+		return codigoFuncion;
+	}
+}
+
+
+Attributes cabecera_funcion(String etiqueta) :
+{
+	Token t1 = new Token();
+	Symbol.Types tipoDevuelto;
+	ArrayList<Symbol> parametros = new ArrayList<Symbol>();
+	Symbol s = null;
+	Attributes res = new Attributes();
+}
+{
+	<tFUNCTION> tipoDevuelto = tipo_variable() t1 = <tIDENT> <tOPAR> (parametros = lista_parametros())? <tCPAR> <tIS>
+		{
+			sf.tratar_cabecera_funcion(t1, tipoDevuelto, parametros, etiqueta);
+
+			res.token = t1;
+
+			for (int i = parametros.size() - 1; i >= 0; i--) {
+				s = parametros.get(i);
+				res.b.addComment("Recuperación del parámetro " + s);
+
+				// Si es un array por valor, se recupera elemento a elemento
+				if (s.type == Symbol.Types.ARRAY && s.parClass == Symbol.ParameterClass.VAL) {
+					for (int j = ((SymbolArray) s).maxInd; j >= 0; j--) {
+						// Se apila la @base del array
+						int intArray[] = new int[2];
+						intArray[0] = sf.st.level - s.nivel;
+						intArray[1] = (int) s.dir + j;
+
+						res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+
+						res.b.addInst(PCodeInstruction.OpCode.ASGI); // Assign inverso, para asignar a frames[pop_1()] = pop_2()
+					}
+				} else { // Se hace lo mismo tanto para símbolos por valor como por referencia					
+					int intArray[] = new int[2];
+					intArray[0] = sf.st.level - s.nivel;
+					intArray[1] = (int) s.dir;
+
+					res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+					res.b.addInst(PCodeInstruction.OpCode.ASGI); // Assign inverso, para asignar a frames[pop_1()] = pop_2()
+				}
+			}
+
+			res.nombre = t1.image;
+			return res;
+		}
+}
+
+CodeBlock declaracion_procedimiento() :
+{
+	CodeBlock b = new CodeBlock();
+	Attributes attr = null;
+	CodeBlock codigoProc = new CodeBlock();
+	String etiqueta1 = CGUtils.newLabel(); // Etiqueta de cabecera
+	String etiqueta2 = CGUtils.newLabel(); // Etiqueta del bloque de sentencias
+}
+{
+	attr = cabecera_procedimiento(etiqueta1) {
+		codigoProc.addComment("Recuperación de parámetros de " + attr.nombre);
+		codigoProc.addLabel(etiqueta1);
+		codigoProc.addBlock(attr.b);
+		codigoProc.addInst(PCodeInstruction.OpCode.JMP, etiqueta2); // Se salta al cuerpo del código
+	}
+    
+	declaracion_variables()
+	b = declaracion_procs_funcs() {
+		codigoProc.addBlock(b);
+	}
+    
+	b = bloque_sentencias()
+	{
+		sf.tratar_declaracion_procedimiento();
+
+		codigoProc.addComment("Bloque de sentencias de " + attr.nombre);
+		codigoProc.addLabel(etiqueta2);
+		codigoProc.addBlock(b);
+		codigoProc.addInst(PCodeInstruction.OpCode.CSF); // Se cierra el bloque
+
+		return codigoProc;
+	}
+}
+
+Attributes cabecera_procedimiento(String etiqueta) :
+{	
+	Token t1 = new Token();
+	ArrayList<Symbol> parametros = new ArrayList<Symbol>();
+	Symbol s = null;
+	Attributes res = new Attributes();
+}
+{
+	<tPROCEDURE> t1 = <tIDENT> <tOPAR> (parametros = lista_parametros())? <tCPAR> <tIS>
+		{
+			sf.tratar_cabecera_procedimiento(t1, parametros, etiqueta);
+
+			res.token = t1;
+
+			for (int i = parametros.size() - 1; i >= 0; i--) {
+				s = parametros.get(i);
+				res.b.addComment("Recuperación del parámetro " + s);
+
+				// Si es un array por valor, se recupera elemento a elemento
+				if (s.type == Symbol.Types.ARRAY && s.parClass == Symbol.ParameterClass.VAL) {
+					for (int j = ((SymbolArray) s).maxInd; j >= 0; j--) {
+						// Se apila la @base del array
+						int intArray[] = new int[2];
+						intArray[0] = sf.st.level - s.nivel;
+						intArray[1] = (int) s.dir + j;
+
+						res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+
+						res.b.addInst(PCodeInstruction.OpCode.ASGI); // Assign inverso, para asignar a frames[pop_1()] = pop_2()
+					}
+				} else { // Se hace lo mismo tanto para símbolos por valor como por referencia					
+					int intArray[] = new int[2];
+					intArray[0] = sf.st.level - s.nivel;
+					intArray[1] = (int) s.dir;
+
+					res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+					res.b.addInst(PCodeInstruction.OpCode.ASGI); // Assign inverso, para asignar a frames[pop_1()] = pop_2()
+				}
+			}
+
+			res.nombre = t1.image;
+			return res;
+		}
+}
+
+// (ref|val) tipo param1, param2... (; (ref|val) tipo param1, param2...)*
+ArrayList<Symbol> lista_parametros() : 
+{
+	ArrayList<Symbol> listaParametros = new ArrayList<Symbol>();
+}
+{
+	parametroFuncionProc(listaParametros) (<tSEMICOLON> parametroFuncionProc(listaParametros))*
+	{
+		return listaParametros;
+	}
+}
+
+// (ref|val) tipo param1, param2...
+void parametroFuncionProc(ArrayList<Symbol> listaParametros) : 
+{}
+{
+	  <tREF> declaracionParametroFuncionProc(listaParametros, Symbol.ParameterClass.REF) {
+		  
+	  }
+	| <tVAL> declaracionParametroFuncionProc(listaParametros, Symbol.ParameterClass.VAL) 
+}
+
+// tipo param1, param2...
+void declaracionParametroFuncionProc(ArrayList<Symbol> listaParametros, Symbol.ParameterClass clase) : 
+{
+	Symbol.Types tipo;
+}
+{
+	tipo = tipo_variable() lista_variablesFuncionProc(listaParametros, tipo, clase)
+}
+
+// param1 (, param_n)*
+void lista_variablesFuncionProc(ArrayList<Symbol> listaParametros, Symbol.Types tipo, Symbol.ParameterClass clase) : 
+{}
+{
+	declaracion_variableFuncionProc(listaParametros, tipo, clase) ( <tCOMMA> declaracion_variableFuncionProc(listaParametros, tipo, clase) )*
+}
+
+// param([numCT])?
+void declaracion_variableFuncionProc(ArrayList<Symbol> listaParametros, Symbol.Types tipo, Symbol.ParameterClass clase) : 
+{
+	Token t1 = new Token(); 
+	Token t2 = new Token();
+}
+{
+	// Se divide declaracion_variableFuncionProc() en dos producciones para evitar
+	// tener que usar un lookahead de 2 tokens (declaracion_variable_2 puede
+	// ser una indexación de vector o nada)
+	t1 = <tIDENT> t2 = declaracion_variable_2() 
+		{
+			sf.tratar_declaracion_variableFuncionProc(listaParametros, tipo, clase, t1, t2);
+		}
+}
+
+// Devuelve true si hay una instrucción de retorno en el bloque de sentencias
+CodeBlock bloque_sentencias() :
+{
+	CodeBlock res = new CodeBlock();
+	CodeBlock b = new CodeBlock();
+}
+{
+	try {
+		<tBEGIN>
+		(b = instruccion() 
+		{
+			res.addBlock(b);
+		})*
+		<tEND> 
+		{
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tEND);
+	}
+}
+
+
+CodeBlock instruccion() :
+{
+	Attributes a = new Attributes();
+	CodeBlock b = new CodeBlock();
+}
+{
+	
+	a = inst_leer() 			<tSEMICOLON>	{ return a.b;} // get 										
+	| b = inst_saltar_linea()	<tSEMICOLON>	{ return b;} // skipline()								
+	| a = inst_escribir() 		<tSEMICOLON>	{ return a.b;} // put(lista de uno o mas expresiones)		
+	| a = inst_escribir_linea() <tSEMICOLON>	{ return a.b;} // put_line(0 o mas expresiones)			
+	| LOOKAHEAD(2)
+	a = inst_invoc_proc(false)	<tSEMICOLON>	{ return a.b;} // llamar a procedimiento					
+	| a = inst_asignacion() 	<tSEMICOLON>	{ return a.b;} // asignable := expresion					
+	| b = inst_seleccion()						{ return b;} // if expresion then (0 o mas instrucciones) (opcionalmente else con instruccions (otro if opcional)) end	
+	| b = inst_iteracion()						{ return b;} // while(...) do ... end
+	| b = inst_return() 		<tSEMICOLON>	{sf.st.haHabidoReturn = true; return b;}  // return expresion						
+}
+
+// get(asignable(, asignable_n)*)
+Attributes inst_leer():
+{
+	Token t = new Token();
+	Attributes a1;
+	Attributes a2;
+	Attributes res = new Attributes();
+}
+{ 
+	try {
+		t = <tGET> <tOPAR> a1 = asignable() 
+		{
+			sf.tratar_inst_leer(t, a1);	
+			res.b.addComment("Comienzo de get");
+			res.b.addBlock(a1.b); // Bloque del asignable
+
+			// Decide qué tipo de RD hacer
+			if (a1.esInt() || a1.baseType == Symbol.Types.INT) {
+				res.b.addInst(PCodeInstruction.OpCode.RD, 1);
+			} else if (a1.esChar() || a1.baseType == Symbol.Types.CHAR) { // Sabemos que si no es int es char, si no habría fallado en SemanticFunctions
+				res.b.addInst(PCodeInstruction.OpCode.RD, 0);
+			}
+		}
+		(<tCOMMA> a2 = asignable()
+		{
+			sf.tratar_inst_leer(t, a2);	
+			res.b.addBlock(a2.b);
+
+			// Decide qué tipo de RD hacer
+			if (a2.esInt() || a2.baseType == Symbol.Types.INT) {
+				res.b.addInst(PCodeInstruction.OpCode.RD, 1);
+			} else if (a2.esChar() || a2.baseType == Symbol.Types.CHAR) { // Sabemos que si no es int es char, si no habría fallado en SemanticFunctions
+				res.b.addInst(PCodeInstruction.OpCode.RD, 0);
+			}
+
+		})* <tCPAR>			
+		{
+			res.b.addComment("Fin de get");
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tSEMICOLON);
+	}
+}
+
+// skip_line()
+CodeBlock inst_saltar_linea() :
+{
+	Symbol s = null;
+	CodeBlock res = new CodeBlock();
+}
+{
+	try {
+		<tSKIPLINE> <tOPAR> <tCPAR> {	
+			res.addComment("Comienzo de skip_line");
+
+			// Se utiliza una variable temporal, no introducida en la tabla, una posición por encima de als ya reservadas
+			int intArray[] = new int[2];
+			intArray[0] = 0;
+			intArray[1] = CGUtils.memorySpaces[sf.st.level];
+
+			// Incrusta un bucle de lectura sobre la variable interna, del que se sale
+			// si el valor leído es == '\n'
+			String etiqueta = CGUtils.newLabel();
+
+			res.addLabel(etiqueta);
+			// Lee
+			res.addInst(PCodeInstruction.OpCode.SRF, intArray);
+			res.addInst(PCodeInstruction.OpCode.RD, 0);
+			// Apila '\n'
+			res.addInst(PCodeInstruction.OpCode.SRF, intArray);
+			res.addInst(PCodeInstruction.OpCode.DRF);
+			res.addInst(PCodeInstruction.OpCode.STC, 10);
+			// Compara lo leído con '\n'
+			res.addInst(PCodeInstruction.OpCode.EQ);
+			// Sigue en el bucle si no lo era
+			res.addInst(PCodeInstruction.OpCode.JMF, etiqueta);
+
+			res.addComment("Fin de skip_line");
+
+			return res;
+		}			
+	} catch(ParseException e) {
+		modoPanico(e, tSEMICOLON);
+	}
+}
+
+// put(x1, x2, ...)
+Attributes inst_escribir() :
+{
+	Token t = new Token();
+	Attributes a1, a2;
+	Attributes res = new Attributes();
+}
+{
+	try {
+		t = <tPUT>
+		{
+			res.b.addComment("Comienzo de put");
+		} 
+		<tOPAR> a1 = expresion() 
+		{
+			res.b.addComment("Escritura de "+a1);
+			sf.tratar_inst_escribir(t, a1);
+
+			// Asignable ya ha escrito SRF, y ya tenemos su dirección en el bloque de código de a1
+			res.b.addBlock(a1.b);
+
+			if (!a1.esString()) {
+				// Elige cómo escribirlo
+				if (a1.esInt() || a1.baseType == Symbol.Types.INT) {
+					res.b.addInst(PCodeInstruction.OpCode.WRT, 1);
+				} else if (a1.esChar() || a1.baseType == Symbol.Types.CHAR) { // Sabemos que si no es int es char, si no habría fallado en SemanticFunctions
+					res.b.addInst(PCodeInstruction.OpCode.WRT, 0);
+				}
+			}
+		}
+
+		(<tCOMMA> a2 = expresion()
+		{
+			res.b.addComment("Escritura de "+a2);
+			sf.tratar_inst_escribir(t, a2);
+
+			res.b.addBlock(a2.b);
+
+			if (!a2.esString()) {	
+				// Elige cómo escribirlo
+				if (a2.esInt() || a1.baseType == Symbol.Types.INT) {
+					res.b.addInst(PCodeInstruction.OpCode.WRT, 1);
+				} else if (a2.esChar() || a2.baseType == Symbol.Types.CHAR) { // Sabemos que si no es int es char, si no habría fallado en SemanticFunctions
+					res.b.addInst(PCodeInstruction.OpCode.WRT, 0);
+				}
+			}
+		}
+		)* <tCPAR>
+		{		
+			res.b.addComment("Fin de put");	
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tSEMICOLON);
+	} 
+}
+
+// put_line(x1, x2, x3...)
+Attributes inst_escribir_linea():
+{
+	Token t = new Token();
+	ArrayList<Attributes> lista;
+	Attributes res = new Attributes();
+	//Attributes a = null;
+	int intArray[] = new int[2];
+}
+{
+	try {
+		t = <tPUTLINE> <tOPAR> lista = lista_expresiones_opcionales() <tCPAR>
+		{	
+			sf.tratar_inst_escribir_linea(t, lista);
+			res.b.addComment("Comienzo de put_line");
+
+			for (Attributes a : lista) {	
+				res.b.addComment("Escritura de "+a);
+				res.b.addBlock(a.b);
+
+				if (!a.esString()) {
+					// Elige cómo escribirlo
+					if (a.esInt() || a.baseType == Symbol.Types.INT) {
+						res.b.addInst(PCodeInstruction.OpCode.WRT, 1);
+					} else if (a.esChar() || a.baseType == Symbol.Types.CHAR) { // Sabemos que si no es int es char, si no habría fallado en SemanticFunctions
+						res.b.addInst(PCodeInstruction.OpCode.WRT, 0);
+					}
+				}
+			}
+			res.b.addComment("Escritura de newline");
+			res.b.addInst(PCodeInstruction.OpCode.STC, 10); // Escribimos una nueva linea ('\n')
+			res.b.addInst(PCodeInstruction.OpCode.WRT, 0);
+			res.b.addComment("Final de put_line");
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tSEMICOLON);
+	}
+}
+
+// expresion() (, expresion)*
+ArrayList<Attributes> lista_expresiones_opcionales():								
+{
+	ArrayList<Attributes> attrs = new ArrayList<Attributes>();
+	Attributes a1;
+	Attributes a2;
+}
+{
+	a1 = expresion()
+	{
+		attrs.add(a1);
+	}
+	
+	(<tCOMMA> a2 = expresion()
+	{
+		attrs.add(a2);
+	})*
+	
+	// Devolver la lista al terminar de obtener las expresiones
+	{
+		return attrs;
+	}
+	
+	|
+	
+	{
+		//epsilon
+		return attrs;
+	}
+}
+
+// ident ((expresion() (,expresion())*)?))
+Attributes inst_invoc_proc(boolean funcionesPermitidas) : 																
+{
+	Token t = new Token();
+	ArrayList<Attributes> lista;
+	Attributes res = new Attributes();
+	Attributes a = null;
+	Symbol paramOriginal = null;
+
+	SymbolFunction  func = null;
+	SymbolProcedure proc = null;
+	ArrayList<Symbol> listaParams = null;
+}
+{
+	try {
+		t = <tIDENT> <tOPAR> lista = lista_expresiones_opcionales() <tCPAR>
+		{
+			res = sf.tratar_inst_invoc_proc(t, lista);
+		
+			res.b.addComment("Llamada a " + t.image);
+
+			if (res.simboloTabla instanceof SymbolFunction && funcionesPermitidas) {
+				func = (SymbolFunction) res.simboloTabla;
+				listaParams = func.parList;
+			} else if (res.simboloTabla instanceof SymbolFunction && !funcionesPermitidas) {
+				sf.errSem.error("No se puede invocar a una función sin utilizar su valor", t);
+			} else if (res.simboloTabla instanceof SymbolProcedure) {
+				proc = (SymbolProcedure) res.simboloTabla;
+				listaParams = proc.parList;
+			}
+
+			// Apilar expresiones, en orden
+			for (int i = 0; i < lista.size(); i++) {	
+				// Asignable ya ha escrito SRF, y ya tenemos su dirección en el bloque de código de a1
+				a = lista.get(i);
+				res.b.addComment("Paso del parámetro " + a.nombre);
+				
+				paramOriginal = listaParams.get(i);
+
+				// Paso de un array por valor
+				if (a.type == Symbol.Types.ARRAY && paramOriginal.parClass == Symbol.ParameterClass.VAL) {
+					
+					// Paso de un array por valor, siendo el original por valor también
+					if (a.parClass == Symbol.ParameterClass.VAL || a.parClass == Symbol.ParameterClass.NONE) {
+						for (int j = 0; j <= ((SymbolArray) a.simboloTabla).maxInd; j++) {
+							int intArray[] = new int[2];
+							intArray[0] = sf.st.level -  a.simboloTabla.nivel;
+							intArray[1] = (int) a.simboloTabla.dir + j;
+
+							res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+
+							res.b.addInst(PCodeInstruction.OpCode.DRF);
+						}
+					} 
+					// Paso de un array por valor, siendo el original por referencia
+					else {
+						for (int j = 0; j <= ((SymbolArray) a.simboloTabla).maxInd; j++) {
+							int intArray[] = new int[2];
+							intArray[0] = sf.st.level -  a.simboloTabla.nivel;
+							intArray[1] = (int) a.simboloTabla.dir;
+
+							// En este caso se tiene que referenciar la dirección al array por referencia, 
+							// dereferenciarla para conseguir la @ base y hacer un offset manual
+							res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+							res.b.addInst(PCodeInstruction.OpCode.DRF);
+
+							res.b.addInst(PCodeInstruction.OpCode.STC, j);
+							res.b.addInst(PCodeInstruction.OpCode.PLUS);
+							res.b.addInst(PCodeInstruction.OpCode.DRF);
+						}
+					}
+				} 
+
+				// Paso de una variable o direcionamiento de array por valor
+				else if (paramOriginal.parClass == Symbol.ParameterClass.VAL) {
+					res.b.addBlock(a.b);
+				} 
+				// Paso de una variable, array o direccionamiento de array por referencia
+				else if (paramOriginal.parClass == Symbol.ParameterClass.REF) {					
+					// Elimina el DRF que se introduce por defecto en termino()
+					a.b.code.remove(a.b.code.size() - 1);
+					res.b.addBlock(a.b);
+				}
+			}
+
+			// Hace un OSF
+			int s = CGUtils.memorySpaces[sf.st.level];
+			int l = sf.st.level - sf.st.getSymbol(t.image).nivel; // Diferencia entre nivel actual y el del invocado
+			
+			if (res.simboloTabla instanceof SymbolFunction) {
+				res.b.addOSFInst(s, l, ((SymbolFunction) res.simboloTabla).etiqueta);
+			} else {				
+				res.b.addOSFInst(s, l, ((SymbolProcedure) res.simboloTabla).etiqueta);
+			}
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tSEMICOLON);
+		return new Attributes();
+	}
+}
+
+// asignable := expresión
+Attributes inst_asignacion() : 
+{
+	Token t = new Token();
+	Attributes a1 = null;
+	Attributes a2 = null;
+	Attributes res = new Attributes();
+}
+{
+	try{
+		a1 = asignable() t = <tASSIGN> a2 = expresion()
+		{
+			sf.tratar_inst_asignacion(t, a1, a2);
+
+			// Asignable ya ha escrito DRF -> ya tenemos su dirección o valor en el bloque de código de a1
+			res.b.addComment("Asignación a "+a1.simboloTabla);
+			res.b.addComment("Dirección de "+a1.simboloTabla);
+			res.b.addBlock(a1.b);
+			res.b.addComment("Expresión de asignación a "+a1.simboloTabla);
+			res.b.addBlock(a2.b);
+			res.b.addInst(PCodeInstruction.OpCode.ASG);
+			
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tSEMICOLON);
+	}
+}
+
+// ident([asignable_2()])? 
+Attributes asignable() : 
+{
+	Token t = new Token();
+	Attributes a = null;
+	Attributes res = null;
+}
+{
+	// Se divide asignable() en dos producciones para evitar
+	// tener que usar un lookahead de 2 tokens (asignable puede
+	// ser una indexación de vector, esta vez con una expresión, o nada)
+	t = <tIDENT> a = asignable_2(t)
+		{
+			res = sf.tratar_asignable(t, a);			
+
+			int intArray[] = new int[2];
+			intArray[0] = sf.st.level -  res.simboloTabla.nivel;
+			intArray[1] = (int) res.simboloTabla.dir;
+
+			if (a == null) { // No es un direccionamiento de array
+				res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+				
+				if (res.parClass == Symbol.ParameterClass.REF) { // Era un parámetro por referencia, se hace otro DRF
+					res.b.addInst(PCodeInstruction.OpCode.DRF);
+				}
+			} else { // Es un direccionamiento de array
+				res.b = a.b;
+				res.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+
+				if (res.parClass == Symbol.ParameterClass.REF ) { // Si el array es por referencia, se obtiene su @ base con un DRF
+					res.b.addInst(PCodeInstruction.OpCode.DRF);
+				}
+				// Se suma el offset, dado por la expresión (ya en el bloque de código)
+				res.b.addInst(PCodeInstruction.OpCode.PLUS);
+			}
+			
+			return res;
+		}
+}
+
+// [expresión] o nada
+Attributes asignable_2(Token t) : 
+{
+	Attributes a = null;
+}
+{
+	
+	// En este caso se puede indexar por cualquier expresión (entera), ya que no es una declaración
+	<tOBRACKET> a = expresion() <tCBRACKET>  
+	{
+		sf.tratar_asignable_2(t, a);
+		return a;
+	}
+	|
+	{   // epsilon
+		return null;
+	}
+	
+}
+
+// if expresion() then (instruccion())* (else ((instruccion())* | if...))? end
+CodeBlock inst_seleccion() : 
+{
+	Token t;
+	Attributes a;
+	CodeBlock res = new CodeBlock();
+	CodeBlock b = new CodeBlock();
+	String etiqueta1 = CGUtils.newLabel(); //else
+	String etiqueta2 = CGUtils.newLabel(); // end
+}
+{
+	try {
+		t = <tIF> 
+		a = expresion()
+		{	
+			res.addComment("Principio de if");
+			// Añade el bloque con los valores y la comparación
+			res.addBlock(a.b);
+			sf.tratar_inst_seleccion(t, a);
+			res.addInst(PCodeInstruction.OpCode.JMF, etiqueta1); // JMP al else
+		}
+		<tTHEN>
+		(b = instruccion()
+		{
+			res.addComment("Cuerpo de instrucciones principal de if");
+			res.addBlock(b);
+		}
+		)+ 
+		{
+			res.addInst(PCodeInstruction.OpCode.JMP, etiqueta2); // JMP al end
+			res.addLabel(etiqueta1); // Se pone la etiqueta del else incondicionalmente
+		}
+		
+		// El 'if' dentro de un 'else if' es otra instrucción de selección
+		// anidada, que simplifica la gramática, ya que anidará instrucciones
+		// de selección recursivamente, cada una con su 'end'
+		(<tELSE> {res.addComment("Principio de else");}
+		( b = instruccion()
+		{
+			res.addBlock(b);
+		})+)?
+		<tEND> 
+		{
+			res.addLabel(etiqueta2); // Se pone la etiqueta del end incondicionalmente
+			res.addComment("Fin de if");
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tEND);
+	}
+}
+
+// expresion_simple() ((=|<>|>|>=|<=|<) expresion_simple())?
+Attributes expresion() : 
+{
+	Attributes a1 = null; 
+	Attributes a2 = null;
+	Attributes res = null;
+	CodeBlock b = new CodeBlock();
+}
+{
+	a1 = expresion_simple() ( b = operador_relacional() a2 = expresion_simple() )?
+		{
+			res = sf.tratar_expresion(a1, a2);		
+			if (a2 != null) {
+				a1.b.addBlock(a2.b);
+				a1.b.addBlock(b);				
+			}
+
+			res.b = a1.b;
+			return res;	
+		}
+}
+  
+// (=|<>|>|>=|<=|<)
+CodeBlock operador_relacional() : 
+{
+	CodeBlock b = new CodeBlock();
+}
+{
+	  <tE> 
+	  	{
+		  	b.addInst(PCodeInstruction.OpCode.EQ);
+			return b;
+		}
+	| <tNE>
+		{
+			b.addInst(PCodeInstruction.OpCode.NEQ);
+			return b;
+		}
+	| <tGT>
+		{
+			b.addInst(PCodeInstruction.OpCode.GT);
+			return b;
+		}
+	| <tGE>
+		{
+			b.addInst(PCodeInstruction.OpCode.GTE);
+			return b;
+		}
+	| <tLE>
+		{
+			b.addInst(PCodeInstruction.OpCode.LTE);
+			return b;
+		}
+	| <tLT>
+		{
+			b.addInst(PCodeInstruction.OpCode.LT);
+			return b;
+		}
+}
+
+// (+|-)? termino ((+|-|or) termino)*
+Attributes expresion_simple() : 
+{
+	Attributes a1 = null; 
+	Attributes a2 = null;
+	Attributes res = null;
+	int tipoOperador = -1;
+	CodeBlock b = new CodeBlock();
+	int numTermino = 0;
+
+	boolean negar = false;
+}
+{
+	( <tADD> | <tSUB> 
+	{
+		negar = true; // Flag para incluir NGI o no
+	})?
+	
+	// Se da "prioridad" a los operadores multiplicativos a través de termino,
+	// y después se reconocen operadores aditivos, puesto que la analizador es
+	// top down.
+
+	a1 = termino() 
+	{
+		b.addBlock(a1.b);
+		if (negar) b.addInst(PCodeInstruction.OpCode.NGI);
+	}
+
+	( tipoOperador = operador_aditivo() a2 = termino() 
+	{
+		sf.tratar_expresion_simple(a1, a2, (tipoOperador != 2));
+		
+		b.addBlock(a2.b);
+		b.addBlock(obtener_bloque_operador_aditivo(tipoOperador));
+	})*	
+	{
+		a1.b = b;
+		return a1;
+	}	
+}
+
+// (+|-|or)
+int operador_aditivo() : 
+{
+}
+{
+	< tADD > 	{ return 0;}			// true
+	|< tSUB > 	{ return 1;}			// true
+	|< tOR>		{ return 2;}			// false
+}
+
+// factor() ((*|mod|div|and) factor())*
+Attributes termino() : 
+{
+	Attributes a1 = null; 
+	Attributes a2 = null;
+	int tipoOperador = -1;
+	CodeBlock b = new CodeBlock();
+	int numTermino = 0;
+}
+{
+	a1 = factor() 
+	{
+		// Dereferencia la izquierda si no es una expresión convertida con int2char o char2int, y es asignable
+		if (!a1.tipoConvertido && a1.esAsignable) a1.b.addInst(PCodeInstruction.OpCode.DRF);
+		b.addBlock(a1.b);
+	}
+
+	(tipoOperador = operador_multiplicativo() a2 = factor()
+	 
+	{
+		sf.tratar_termino(a1, a2, (tipoOperador != 3));
+
+		// Dereferencia la izquierda si no es una expresión convertida con int2char o char2int, y es asignable
+		if (!a2.tipoConvertido && a2.esAsignable) a2.b.addInst(PCodeInstruction.OpCode.DRF);
+		b.addBlock(a2.b);
+		b.addBlock(obtener_bloque_operador_multiplicativo(tipoOperador));
+	})*				
+	{
+		a1.b = b;
+		return a1;
+	}	
+}
+
+// (*|mod|div|and)
+int operador_multiplicativo() : 
+{
+}
+{
+	< tMUL > 	{ return 0;}				// true
+	|   <tMOD>  { return 1;}				// true
+	|	<tDIV>  { return 2;}				// true
+	| 	<tAND>  { return 3;}				// false
+}
+
+// not factor | 
+// '(' expresion ')' |
+// int2char '(' expresion ')'
+// char2int '(' expresion ')'
+// procedimiento(...)
+// funcion(...)
+// var[exp()]
+// var
+// numCT
+// 'c'
+// "string"
+// true
+// false
+Attributes factor() : 
+{
+	String s = null;
+	char c = '\0';
+	Attributes a = null;
+	Token t = new Token();
+}
+{
+		<tNOT> a = factor() 								// not factor
+			{
+				a = sf.tratar_factor_1(a);	
+				if (a.esAsignable) {
+					// Lo dereferencia ya, está marcado como que se le ha cambiado
+					// el tipo y no se dereferenciará más tarde
+					a.b.addInst(PCodeInstruction.OpCode.DRF); 
+				}
+
+				a.b.addInst(PCodeInstruction.OpCode.NGB); // Hace un push(not pop())
+				return a;
+			}
+		| <tOPAR> a = expresion() <tCPAR>			    	// '(' expresion ')'
+			{
+				// Indica que se ha "convertido" su tipo, para no hacerle otro DRF al volver a pasar por termino()
+				a.tipoConvertido = true; 
+				return a;
+			}
+		| <tINT2CHAR> <tOPAR> a = expresion() <tCPAR> 		// int2char '(' expresion ')'
+			{
+				return sf.tratar_factor_2(a);
+			}
+		| <tCHAR2INT> <tOPAR> a = expresion() <tCPAR>		// char2int '(' expresion ')'
+			{
+				return sf.tratar_factor_3(a);
+			}
+		// Para evitar ambigüedad por <tID>
+		| LOOKAHEAD(2) a = inst_invoc_proc(true) // Invocacion a una función
+			{
+				return a;
+			}
+		| LOOKAHEAD(2) t = <tIDENT> <tOBRACKET> a = expresion() <tCBRACKET>	 // Componente de un vector
+			{
+				a = sf.tratar_factor_4(t, a);
+
+				// Se apila la @base del array
+				int intArray[] = new int[2];
+				intArray[0] = sf.st.level -  a.simboloTabla.nivel;
+				intArray[1] = (int) a.simboloTabla.dir;
+
+				a.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+
+				// Si el array es por referencia, se obtiene su @ base con un DRF
+				if (a.simboloTabla.parClass == Symbol.ParameterClass.REF) { 
+					a.b.addInst(PCodeInstruction.OpCode.DRF);
+				}
+
+				// Se suma el offset, dado por la expresión (ya en el bloque de código)
+				a.b.addInst(PCodeInstruction.OpCode.PLUS);
+
+				return a;
+			}
+		| t = <tIDENT>	// identificador
+			{
+				a = sf.tratar_factor_5(t);
+				
+				int intArray[] = new int[2];
+				intArray[0] = sf.st.level -  a.simboloTabla.nivel;
+				intArray[1] = (int) a.simboloTabla.dir;
+
+				a.b.addInst(PCodeInstruction.OpCode.SRF, intArray); // Pone la @ en el stack
+
+				// Si era una variable por referencia, se obtiene su @ base con un DRF
+				if (a.simboloTabla.parClass == Symbol.ParameterClass.REF) { 
+					a.b.addInst(PCodeInstruction.OpCode.DRF);
+				}
+
+				return a;
+			}
+		| t = <tNUMCT>
+		{
+			a =  new Attributes(Integer.parseInt(t.image));
+			a.esConstante = true;
+			a.b.addInst(PCodeInstruction.OpCode.STC, Integer.parseInt(t.image));
+			return a;
+		}
+		| t = <tCHARLITERAL> 
+		{
+			a =  new Attributes(t.image.charAt(1));
+			a.esConstante = true;
+			a.b.addInst(PCodeInstruction.OpCode.STC, (int) (t.image.charAt(1)));
+			return a;
+		}
+		| t = <tSTRING>	 
+		{
+			String str = t.image;
+
+			// Se eliminan las comillas dobles del inicio y final, y las escapadas de la forma '""'
+			str = str.substring(1, str.length() - 1);
+			a =  new Attributes(str);
+			a.b.addComment("Escritura de string");
+			str = str.replaceAll("\"\"", "\"");
+			a.esConstante = true;
+
+			// Se apilan como constantes cada uno de los caracteres del string
+			for(int i = 0; i < str.length(); i++){
+				a.b.addInst(PCodeInstruction.OpCode.STC, (int) (str.charAt(i)));
+				a.b.addInst(PCodeInstruction.OpCode.WRT, 0);	
+			}
+
+			return a; 
+		}
+		| <tTRUE> 	
+		{ 
+			a = new Attributes(true);
+			a.esConstante = true;
+			a.b.addInst(PCodeInstruction.OpCode.STC, 1);
+			return a;
+		}
+		| <tFALSE>	
+		{ 	
+			a = new Attributes(false);
+			a.esConstante = true;
+			a.b.addInst(PCodeInstruction.OpCode.STC, 0);
+			return a;
+		}
+}
+
+// while expresion() do (instruccion())* end
+CodeBlock inst_iteracion() : 
+{
+	Attributes a = null;
+	Token t = new Token();
+	CodeBlock res = new CodeBlock();
+	CodeBlock b = new CodeBlock();
+	String etiqueta1 = CGUtils.newLabel(); // principio del while
+	String etiqueta2 = CGUtils.newLabel(); // fin del while
+}
+{
+	try{
+		t = <tWHILE>
+		a = expresion()
+		{	
+			sf.tratar_inst_iteracion(t, a);
+			
+			res.addComment("Principio de while");
+			res.addLabel(etiqueta1); // Etiqueta de principio
+			res.addBlock(a.b); // Instrucciones de comparación
+			res.addInst(PCodeInstruction.OpCode.JMF, etiqueta2); // JMF al end
+		}
+		<tDO>
+		{
+			res.addComment("Cuerpo de while");
+		}
+		(b = instruccion()
+		{
+			res.addBlock(b);
+		}
+		)*
+		<tEND>
+		{
+			res.addInst(PCodeInstruction.OpCode.JMP, etiqueta1); // JMP al while
+			res.addComment("Fin de while");
+			res.addLabel(etiqueta2); // Etiqueta de fin
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tEND);
+	}
+	
+}
+
+// return expresion()
+CodeBlock inst_return() : 
+{
+	Attributes a = null;
+	Token t = new Token();
+	CodeBlock res = new CodeBlock();
+}
+{
+	try{
+		t = <tRETURN> a = expresion()
+		{
+			res.addComment("Return");
+			sf.tratar_inst_return(t,a);
+
+			// Pone el bloque de código de la expresión y cierra el bloque
+			res.addBlock(a.b);
+			res.addInst(PCodeInstruction.OpCode.CSF);
+
+			return res;
+		}
+	} catch(ParseException e) {
+		modoPanico(e, tSEMICOLON);
+	} 
+}
+
+JAVACODE
+void modoPanico(ParseException e, Integer t){
+	Set<Integer> conjuntoSincronizacion = infoParseException(e);
+
+	conjuntoSincronizacion.add(t);
+	// currentToken.next es el token que ha causado el error
+	recuperacionPanico(e.currentToken.next, conjuntoSincronizacion);
+	
+}
+
+JAVACODE
+
+void recuperacionPanico(Token tInesperado, Set<Integer> conjSinc) {
+	System.err.println("----> Recupero en modo pánico: "
+					   + "\n ----> saltando todo hasta token de conjunto de sincronización");
+	// Se obtiene el siguiente token, sin consumirlo, para el caso en el que el primer token a consumir
+	// sea el que pertenece al conjunto de sincronización
+	Token t = getToken(1);
+
+	// Descarta e imprime todos los tokens que se encuentre hasta encontrar 
+	// uno que pertenezca al conjunto de sincronización
+	while (!conjSinc.contains(t.kind) && t.kind != EOF) {
+		System.err.println("Descartando token ("																										
+							+ tokenImage[t.kind]
+							+ " , " + t.image + ")");
+		// Si el siguiente token(sin consumirlo) no está en el conjunto de sincronización, se consume
+		if (!conjSinc.contains(getToken(1).kind))	{
+			t = getNextToken();
+		} else {
+			t = getToken(1); // A la siguiente iteración se saldrá del bucle
+			System.err.println("El siguiente token es " + tokenImage[t.kind] + ", que está en el conjunto de sincronización. Siguiendo.");				
+		}		
+	}
+}
+
+JAVACODE
+// Informa sobre la excepción, y calcula el conjunto de tokens esperados
+Set<Integer> infoParseException(ParseException e) {
+	Set<Integer> simbolosEsperados = new HashSet<Integer>();
+	
+	System.err.println("ERROR SINTÁCTICO: (\"" + e.currentToken.next.image + "\", " 		
+	+ e.currentToken.next.beginLine + " , " + e.currentToken.next.beginColumn + ")");
+	
+	System.err.println("Se esperaba uno de los siguientes tokens:");						
+	for (int i = 0; i < e.expectedTokenSequences.length; i++) {
+		simbolosEsperados.add(e.expectedTokenSequences[i][0]);
+		
+		System.err.println("\t" + tokenImage[e.expectedTokenSequences[i][0]]);
+	}	
+
+	return simbolosEsperados;
+}
+
+JAVACODE
+
+CodeBlock obtener_bloque_operador_aditivo(int n) {
+	CodeBlock b = new CodeBlock();
+
+	switch(n) {
+		case 0:
+			b.addInst(PCodeInstruction.OpCode.PLUS);
+			break;
+
+		case 1:
+			b.addInst(PCodeInstruction.OpCode.SBT);
+			break;
+
+		case 2:
+			b.addInst(PCodeInstruction.OpCode.OR);
+			break;
+	}
+
+	return b;
+}
+
+JAVACODE
+
+CodeBlock obtener_bloque_operador_multiplicativo(int n) {
+	CodeBlock b = new CodeBlock();
+
+	switch(n) {
+		case 0:
+			b.addInst(PCodeInstruction.OpCode.TMS);
+			break;
+
+		case 1:
+			b.addInst(PCodeInstruction.OpCode.MOD);
+			break;
+
+		case 2:
+			b.addInst(PCodeInstruction.OpCode.DIV);
+			break;
+
+		case 3:
+			b.addInst(PCodeInstruction.OpCode.AND);
+			break;
+	}
+
+	return b;
+}

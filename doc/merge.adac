@@ -1,0 +1,93 @@
+--------------------------------------------------------------------
+procedure msort is
+-- https://www.softwaretestinghelp.com/merge-sort/
+--------------------------------------------------------------------
+integer n, t[20];
+
+--------------------------------------------------------------------
+procedure inicializar (ref integer t[20]) is
+--------------------------------------------------------------------
+ integer i;
+ begin
+  i := 0;
+  while i < n do
+    t[i] := n - i;
+    i := i + 1;
+  end
+ end
+
+--------------------------------------------------------------------
+procedure mostrar (val integer t[20]) is
+--------------------------------------------------------------------
+  integer i;
+ begin
+  i := 0;
+  while i < n do
+    put(t[i], " ");
+    i := i + 1;
+  end
+  put(int2char(13),int2char(10));
+ end
+
+
+--------------------------------------------------------------------
+procedure merge (ref integer t[20]; val integer izq, mid, der) is
+--------------------------------------------------------------------
+ integer i, j, k, c[20];
+ begin
+    i := izq;
+    k := izq;
+    j := mid + 1;
+    while (i <= mid) and (j <= der) do
+        if t[i] < t[j] then
+            c[k] := t[i];
+            k := k + 1;
+            i := i + 1;
+        else  
+            c[k] := t[j];
+            k := k + 1;
+            j := j + 1;
+        end
+    end
+    while i <= mid do
+        c[k] := t[i];
+        k := k + 1;
+        i := i + 1;
+    end
+    while j <= der do
+        c[k] := t[j];
+        k := k + 1;
+        j := j + 1;
+    end
+    i := izq;
+    while i < k do
+        t[i] := c[i];
+        i := i + 1;
+    end
+ end
+
+--------------------------------------------------------------------
+procedure mergesort (ref integer t[20]; val integer izq, der) is
+--------------------------------------------------------------------
+ integer mid;
+ begin
+    if izq < der then
+        mid := izq + ((der - izq) div 2);
+        mergesort(t, izq, mid);
+        mergesort(t, mid + 1, der);
+        merge(t, izq, mid, der);
+    end
+ end
+
+--------------------------------------------------------------------
+begin
+ put_line ("Ilustración del funcionamiento del algoritmo mergesort para ordenar 20 enteros.");
+ put_line ("");
+
+ n := 20;
+ inicializar (t);
+ mergesort(t, 0, n-1);
+
+ put_line ("El vector ordenado:");
+ mostrar(t);
+end

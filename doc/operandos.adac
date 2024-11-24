@@ -1,0 +1,38 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+integer debajoDelArray; -- @16
+
+
+begin
+    -- Dos operandos
+    a := a + a2;            -- suma normal --OK
+
+    a := - (a * a2);        -- negación inicial -- OK
+
+    a := a - a2;            -- orden inverso --OK
+
+    -- Tres operandos
+    a := a + a2 - a2;       -- suma y después resta --OK
+
+    a := - a * a2 - a2;   -- negación, multiplicación y después resta
+ 
+    -- Compuestas
+
+    a := (a - 9) + (1 - 1) + (2 - 4); -- suma de restas -- OK
+
+    a := (a - 9) + (1 - 1) - (2 - 4); -- suma y resta de restas -- OK
+
+    a := -(-a - 9) - (-(-1 - 1)) + (-2 - 4); -- resta y suma de restas
+
+    a := (a - 9) - (1 - 1) - (2 - 4); -- resta de restas
+
+    a := - (a - 9) - (1 - 1) - (2 - 4); -- resta de restas con negativo al principio
+
+    -- Compuestas con comparaciones
+    b := - (a - 9) < -1;
+
+    b := - (a - 9) < - (4 div 2);
+end 

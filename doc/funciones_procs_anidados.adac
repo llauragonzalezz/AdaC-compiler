@@ -1,0 +1,42 @@
+procedure programaprueba is
+integer a;  -- @3
+integer a2; -- @4
+boolean b; -- @5
+integer array[10]; -- @6 (6,7,8,9,10,11,12,13,14,15)
+integer debajoDelArray; -- @16
+
+
+    function integer funcion_1(val integer k_por_val; val integer l_por_val[10]) is   
+    integer variable1;
+    character array1[3];    
+       
+        -- Función anidada que llama a su padre
+        function integer funcion_2(val integer k_por_val; val integer l_por_val[10]) is   
+        integer variable1;
+        character array1[3];  
+        begin
+            return funcion_1(k_por_val, l_por_val);
+        end
+
+        procedure proc_2(val character c) is   
+        integer variable1;
+        character array1[3];  
+        begin
+            c := 'a';
+        end
+
+    begin
+        -- Llamada a función hija 1
+        a := funcion_2(k_por_val, array); -- Pasa un parámetro suyo y el array del proc principal
+
+        -- Llamada a proc hijo 1
+        proc_2('a');
+
+        return 1;
+    end
+
+
+
+begin
+    a := funcion_1(a, array);
+end 
