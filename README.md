@@ -21,11 +21,10 @@ ADAC is a fictional programming language combining features of **Ada** and **C**
 
 ## Building and Running  
 1. **Building the compiler:**  
-   Run the following command from the project root: 
+   The output will be a .jar file located in the dist/ folder. Run the following command from the project root: 
    ```bash 
    ant -f build.xml
-  The output will be a .jar file located in the dist/ folder.
-
+  
 2. Cleaning the project:
    Remove all generated files with
    ```bash 
