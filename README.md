@@ -1,7 +1,7 @@
  
-# adac_compiler  
+# AdaC Compiler  
 
-Complete ADAC compiler developed for the **Language Processing, Compiler Design** course along ![@Sondeluz](https://github.com/Sondeluz) during the 2021/2022 academic year at Universidad de Zaragoza. 
+Complete ADAC compiler developed in Java for the **Language Processing and Compiler Design** course along ![@Sondeluz](https://github.com/Sondeluz) during the 2021/2022 academic year at Universidad de Zaragoza. 
 
 ADAC is a fictional programming language combining features of **Ada** and **C**, designed for educational purposes. The compiler implements:  
 - Lexical analysis  
@@ -9,25 +9,22 @@ ADAC is a fictional programming language combining features of **Ada** and **C**
 - Semantic analysis  
 - Intermediate code generation targeting the **P virtual machine**  
 
-The project includes integration with the tools needed to assemble and run the generated P-code.
-
 ## Features  
-- Generates valid `.pcode` files for the P virtual machine  
-- Structured and maintainable implementation leveraging JavaCC for lexical and syntactic analysis  
+- Generates valid `.pcode` files for the P virtual machine   
 - Modular design with distinct phases: lexing, parsing, semantic analysis, and code generation  
-- Supports nested procedures and functions  
-- Handles scalars and vectors as parameters  
+- Supports nested procedures and functions and handles scalars and vectors as parameters  
 
 ## Requirements  
 - **Apache Ant**: for building and cleaning the project  
-- **JavaCC**: for processing the compiler definition files   
+- **JavaCC**: for processing the compiler definition files. Update javacchome in the build.xml file to point to your JavaCC installation.
+- **Ruby**: Required to execute test script.
 
 ## Building and Running  
 1. **Building the compiler:**  
    Run the following command from the project root: 
    ```bash 
    ant -f build.xml
-The output will be a .jar file located in the dist/ folder.
+  The output will be a .jar file located in the dist/ folder.
 
 2. Cleaning the project:
    Remove all generated files with
@@ -37,7 +34,14 @@ The output will be a .jar file located in the dist/ folder.
    To compile an ADAC program, use the generated JAR file:
    ```bash 
    java -jar dist/adac_4.jar <program>.adac
+4. Run All Tests
+To test the compiler with the included test files, execute:
+   ```bash
+   ruby test.rb
 
 ## Additional Information
 All documentation is written in Spanish
-All test files required to validate the compiler are included in the doc/ directory.
+
+All test files required to validate the compiler are included in the doc/ directory
+
+The compiler generates .pcode files as intermediate code for the P Virtual Machine, but executables to translate P code to assembly or to directly execute P code are not included in this project. To run .pcode files, an external tool for the P Virtual Machine is required.
